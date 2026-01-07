@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Parser</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23007aff' rx='14'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui, sans-serif' font-size='36' font-weight='bold' fill='white'%3E{}%3C/text%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-tertiary: #e8e8ed;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --border-color: #d2d2d7;
+            --accent-color: #007aff;
+            --accent-hover: #0051d5;
+            --success-color: #34c759;
+            --error-color: #ff3b30;
+            --warning-color: #ff9500;
+
+            --editor-bg: #1e1e1e;
+            --editor-text: #d4d4d4;
+            --editor-gutter: #2d2d2d;
+
+            --json-key: #4fc1ff;
+            --json-string: #ce9178;
+            --json-number: #b5cea8;
+            --json-boolean: #569cd6;
+            --json-null: #808080;
+        }
+
+        [data-theme="light"] {
+            --editor-bg: #ffffff;
+            --editor-text: #1d1d1f;
+            --editor-gutter: #f5f5f7;
+
+            --json-key: #0066cc;
+            --json-string: #a31515;
+            --json-number: #098658;
+            --json-boolean: #0000ff;
+            --json-null: #808080;
+        }
+
+        [data-theme="dark"] {
+            --editor-bg: #1e1e1e;
+            --editor-text: #d4d4d4;
+            --editor-gutter: #2d2d2d;
+
+            --json-key: #4fc1ff;
+            --json-string: #ce9178;
+            --json-number: #b5cea8;
+            --json-boolean: #569cd6;
+            --json-null: #808080;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-secondary);
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            gap: 8px;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--accent-color);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            font-size: 12px;
+        }
+
+        .logo-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 4px;
+        }
+
+        .btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        .btn-sm {
+            width: 24px;
+            height: 24px;
+        }
+
+        .btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .btn:active {
+            background: var(--border-color);
+        }
+
+        .btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-text {
+            display: none;
+        }
+
+        .btn.hidden {
+            display: none;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            min-height: 0;
+        }
+
+        .panel.hidden-panel {
+            display: none;
+        }
+
+        .panel.expanded-panel {
+            flex: 1;
+        }
+
+        .panel {
+            flex: 1;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .panel-header {
+            min-height: 36px;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+            font-size: 12px;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-title svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.6;
+        }
+
+        .panel-status {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .panel-status.valid {
+            color: var(--success-color);
+        }
+
+        .panel-status.invalid {
+            color: var(--error-color);
+        }
+
+        .panel-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            overflow: auto;
+            background: var(--editor-bg);
+            position: relative;
+        }
+
+        .line-numbers {
+            padding: 12px 8px;
+            background: var(--editor-gutter);
+            color: var(--text-secondary);
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: right;
+            user-select: none;
+            min-width: 40px;
+            border-right: 1px solid rgba(128, 128, 128, 0.2);
+            opacity: 0.6;
+        }
+
+        .line-numbers.hidden {
+            display: none;
+        }
+
+        .editor {
+            flex: 1;
+            padding: 12px;
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: none;
+            outline: none;
+            resize: none;
+            background: var(--editor-bg);
+            color: var(--editor-text);
+            overflow: auto;
+            white-space: pre;
+            overflow-wrap: normal;
+        }
+
+        .editor::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .output-container {
+            flex: 1;
+            display: flex;
+            overflow: auto;
+            background: var(--editor-bg);
+            position: relative;
+        }
+
+        .json-output {
+            padding: 12px;
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--editor-text);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .json-key {
+            color: var(--json-key);
+        }
+
+        .json-string {
+            color: var(--json-string);
+        }
+
+        .json-number {
+            color: var(--json-number);
+        }
+
+        .json-boolean {
+            color: var(--json-boolean);
+        }
+
+        .json-null {
+            color: var(--json-null);
+            font-style: italic;
+        }
+
+        .json-bracket {
+            color: #ffd700;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            margin-right: 2px;
+            color: #ffd700;
+            font-weight: bold;
+            transition: color 0.15s;
+        }
+
+        .collapsible:hover {
+            color: #ffed4e;
+        }
+
+        .collapsed-content {
+            display: none;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border-left: 3px solid var(--error-color);
+            padding: 10px 12px;
+            margin: 12px;
+            border-radius: 4px;
+            color: var(--error-color);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .status-bar {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .status-info {
+            display: flex;
+            gap: 16px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-item strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+        }
+
+        .status-dot.valid {
+            background: var(--success-color);
+        }
+
+        .status-dot.invalid {
+            background: var(--error-color);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(128, 128, 128, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(128, 128, 128, 0.5);
+        }
+
+        [data-theme="dark"] ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 工具提示 */
+        .btn[data-tooltip]:hover::before {
+            content: attr(data-tooltip);
+            position: fixed;
+            top: 48px;
+            right: 16px;
+            padding: 5px 9px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: white;
+            font-size: 11px;
+            border-radius: 5px;
+            white-space: nowrap;
+            font-weight: 500;
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 10001;
+            animation: fadeInTooltip 0.15s ease-out;
+        }
+
+        @keyframes fadeInTooltip {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            font-size: 12px;
+            gap: 10px;
+            opacity: 0.6;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        /* 通知 */
+        .notification {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            animation: slideIn 0.25s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">{}</div>
+                <div class="logo-text">JSON Parser</div>
+            </div>
+            <div class="toolbar">
+                <button class="btn" id="btn-line-numbers" data-tooltip="行号">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h1M4 12h1M4 18h1M20 6h1M20 12h1M20 18h1"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-export" data-tooltip="导出">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-copy" data-tooltip="复制">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-expand-collapse" data-tooltip="展开全部">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 3 21 3 21 9"/>
+                        <polyline points="9 21 3 21 3 15"/>
+                        <line x1="21" y1="3" x2="14" y2="10"/>
+                        <line x1="3" y1="21" x2="10" y2="14"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-escape" data-tooltip="显示转义">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-format" data-tooltip="格式化">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-theme" data-tooltip="切换主题">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                </button>
+                <button class="btn" id="btn-clear" data-tooltip="清空">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel" id="input-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        <span>输入</span>
+                    </div>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm" id="btn-toggle-input" data-tooltip="隐藏输入">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"/>
+                            </svg>
+                        </button>
+                        <div class="panel-status" id="input-status">等待输入</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="line-numbers hidden" id="line-numbers"></div>
+                    <textarea
+                        class="editor"
+                        id="json-input"
+                        placeholder="粘贴 JSON 文本..."
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="panel" id="output-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                        <span>结果</span>
+                    </div>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm hidden" id="btn-show-input" data-tooltip="显示输入">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                        <div class="panel-status" id="output-status">未解析</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="output-container" id="output-container">
+                        <div class="line-numbers hidden" id="output-line-numbers"></div>
+                        <div class="json-output" id="json-output">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <div>输入 JSON 以查看解析结果</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-info">
+                <div class="status-item">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">等待输入</span>
+                </div>
+                <div class="status-item">
+                    <span>字符: <strong id="char-count">0</strong></span>
+                </div>
+                <div class="status-item">
+                    <span>行数: <strong id="line-count">0</strong></span>
+                </div>
+            </div>
+            <div class="status-info">
+                <div class="status-item">
+                    <span>耗时: <strong id="parse-time">0</strong> ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            showLineNumbers: false,
+            preserveEscape: false,
+            isExpanded: true,
+            isFormatted: true,
+            inputPanelVisible: true,
+            theme: 'dark',
+            json: null,
+            error: null
+        };
+
+        const elements = {
+            jsonInput: document.getElementById('json-input'),
+            jsonOutput: document.getElementById('json-output'),
+            lineNumbers: document.getElementById('line-numbers'),
+            outputLineNumbers: document.getElementById('output-line-numbers'),
+            inputStatus: document.getElementById('input-status'),
+            outputStatus: document.getElementById('output-status'),
+            statusDot: document.getElementById('status-dot'),
+            statusText: document.getElementById('status-text'),
+            charCount: document.getElementById('char-count'),
+            lineCount: document.getElementById('line-count'),
+            parseTime: document.getElementById('parse-time'),
+            inputPanel: document.getElementById('input-panel'),
+            outputPanel: document.getElementById('output-panel')
+        };
+
+        const buttons = {
+            lineNumbers: document.getElementById('btn-line-numbers'),
+            export: document.getElementById('btn-export'),
+            copy: document.getElementById('btn-copy'),
+            expandCollapse: document.getElementById('btn-expand-collapse'),
+            escape: document.getElementById('btn-escape'),
+            format: document.getElementById('btn-format'),
+            theme: document.getElementById('btn-theme'),
+            clear: document.getElementById('btn-clear'),
+            toggleInput: document.getElementById('btn-toggle-input'),
+            showInput: document.getElementById('btn-show-input')
+        };
+
+        function init() {
+            elements.jsonInput.addEventListener('input', handleInput);
+            elements.jsonInput.addEventListener('scroll', syncScroll);
+            buttons.lineNumbers.addEventListener('click', toggleLineNumbers);
+            buttons.export.addEventListener('click', exportJson);
+            buttons.copy.addEventListener('click', copyToClipboard);
+            buttons.expandCollapse.addEventListener('click', toggleExpandCollapse);
+            buttons.escape.addEventListener('click', toggleEscape);
+            buttons.format.addEventListener('click', toggleFormat);
+            buttons.theme.addEventListener('click', toggleTheme);
+            buttons.clear.addEventListener('click', clearAll);
+            buttons.toggleInput.addEventListener('click', hideInputPanel);
+            buttons.showInput.addEventListener('click', showInputPanel);
+
+            // 初始化主题
+            applyTheme(state.theme);
+        }
+
+        function handleInput() {
+            const input = elements.jsonInput.value;
+            updateStats(input);
+
+            if (!input.trim()) {
+                clearOutput();
+                updateStatus('empty');
+                return;
+            }
+
+            const startTime = performance.now();
+            try {
+                const json = JSON.parse(input);
+                state.json = json;
+                state.error = null;
+                collapseIdCounter = 0; // 重置计数器
+                elements.jsonOutput.innerHTML = renderJson(json, 0, state.isFormatted);
+                updateStatus('valid');
+                elements.parseTime.textContent = (performance.now() - startTime).toFixed(2);
+            } catch (error) {
+                state.error = error;
+                showError(error);
+                updateStatus('invalid');
+                elements.parseTime.textContent = (performance.now() - startTime).toFixed(2);
+            }
+
+            updateLineNumbers();
+        }
+
+        function updateStats(input) {
+            elements.charCount.textContent = input.length;
+            elements.lineCount.textContent = input.split('\n').length;
+        }
+
+        function updateStatus(status) {
+            const statusMap = {
+                empty: { text: '等待输入', class: '', dot: '' },
+                valid: { text: '格式正确', class: 'valid', dot: 'valid' },
+                invalid: { text: '格式错误', class: 'invalid', dot: 'invalid' }
+            };
+
+            const statusInfo = statusMap[status];
+            elements.inputStatus.textContent = statusInfo.text;
+            elements.inputStatus.className = 'panel-status ' + statusInfo.class;
+            elements.outputStatus.textContent = status === 'empty' ? '未解析' : (status === 'valid' ? '已解析' : '解析失败');
+            elements.outputStatus.className = 'panel-status ' + statusInfo.class;
+            elements.statusText.textContent = statusInfo.text;
+            elements.statusDot.className = 'status-dot ' + statusInfo.dot;
+        }
+
+        let collapseIdCounter = 0;
+
+        function renderJson(json, indent = 0, formatted = true) {
+            const type = getType(json);
+            let html = '';
+
+            switch (type) {
+                case 'object':
+                    if (Object.keys(json).length === 0) {
+                        html += '<span class="json-bracket">{}</span>';
+                    } else {
+                        const collapseId = `collapse-${collapseIdCounter++}`;
+                        if (formatted) {
+                            html += `<span class="collapsible" onclick="toggleCollapse('${collapseId}')">▼</span>`;
+                        }
+                        html += '<span class="json-bracket">{</span>';
+                        if (formatted) html += '\n';
+                        html += `<div class="json-content" id="${collapseId}">`;
+
+                        const entries = Object.entries(json);
+                        entries.forEach(([key, value], index) => {
+                            if (formatted) html += '  '.repeat(indent + 1);
+                            html += `<span class="json-key">"${escapeHtml(key)}"</span>: `;
+                            html += renderJson(value, indent + 1, formatted);
+                            if (index < entries.length - 1) html += ',';
+                            if (formatted) html += '\n';
+                        });
+
+                        html += '</div>';
+                        if (formatted) html += '  '.repeat(indent);
+                        html += '<span class="json-bracket">}</span>';
+                    }
+                    break;
+
+                case 'array':
+                    if (json.length === 0) {
+                        html += '<span class="json-bracket">[]</span>';
+                    } else {
+                        const collapseId = `collapse-${collapseIdCounter++}`;
+                        if (formatted) {
+                            html += `<span class="collapsible" onclick="toggleCollapse('${collapseId}')">▼</span>`;
+                        }
+                        html += '<span class="json-bracket">[</span>';
+                        if (formatted) html += '\n';
+                        html += `<div class="json-content" id="${collapseId}">`;
+
+                        json.forEach((item, index) => {
+                            if (formatted) html += '  '.repeat(indent + 1);
+                            html += renderJson(item, indent + 1, formatted);
+                            if (index < json.length - 1) html += ',';
+                            if (formatted) html += '\n';
+                        });
+
+                        html += '</div>';
+                        if (formatted) html += '  '.repeat(indent);
+                        html += '<span class="json-bracket">]</span>';
+                    }
+                    break;
+
+                case 'string':
+                    let displayString = json;
+                    if (state.preserveEscape) {
+                        // 转义特殊字符以便显示（注意：要先转义反斜杠）
+                        displayString = json
+                            .replace(/\\/g, '\\\\')
+                            .replace(/\n/g, '\\n')
+                            .replace(/\r/g, '\\r')
+                            .replace(/\t/g, '\\t')
+                            .replace(/\f/g, '\\f')
+                            .replace(/\v/g, '\\v')
+                            .replace(/\u0000/g, '\\0');
+                    }
+                    html += `<span class="json-string">"${escapeHtml(displayString)}"</span>`;
+                    break;
+
+                case 'number':
+                    html += `<span class="json-number">${json}</span>`;
+                    break;
+
+                case 'boolean':
+                    html += `<span class="json-boolean">${json}</span>`;
+                    break;
+
+                case 'null':
+                    html += `<span class="json-null">null</span>`;
+                    break;
+            }
+
+            return html;
+        }
+
+        function getType(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) return 'array';
+            return typeof value;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(error) {
+            const errorHtml = `
+                <div class="error-message">
+                    <strong>解析错误:</strong> ${error.message}
+                    <br><br>
+                    <small style="opacity: 0.8">请检查 JSON 语法是否正确，特别注意括号、逗号和引号的配对。</small>
+                </div>
+            `;
+            elements.jsonOutput.innerHTML = errorHtml;
+        }
+
+        function clearOutput() {
+            state.json = null;
+            state.error = null;
+            elements.jsonOutput.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <div>输入 JSON 以查看解析结果</div>
+                </div>
+            `;
+        }
+
+        function toggleCollapse(id) {
+            const content = document.getElementById(id);
+            const button = content.previousElementSibling.previousElementSibling;
+            if (content && button) {
+                content.classList.toggle('collapsed-content');
+                button.textContent = content.classList.contains('collapsed-content') ? '▶' : '▼';
+            }
+        }
+
+        function toggleLineNumbers() {
+            state.showLineNumbers = !state.showLineNumbers;
+            elements.lineNumbers.classList.toggle('hidden', !state.showLineNumbers);
+            elements.outputLineNumbers.classList.toggle('hidden', !state.showLineNumbers);
+            buttons.lineNumbers.classList.toggle('active', state.showLineNumbers);
+            updateLineNumbers();
+        }
+
+        function updateLineNumbers() {
+            if (!state.showLineNumbers) return;
+
+            // 更新输入区域行号
+            const inputLines = elements.jsonInput.value.split('\n');
+            elements.lineNumbers.innerHTML = inputLines.map((_, i) => i + 1).join('<br>');
+
+            // 更新输出区域行号
+            const outputLines = elements.jsonOutput.textContent.split('\n');
+            elements.outputLineNumbers.innerHTML = outputLines.map((_, i) => i + 1).join('<br>');
+        }
+
+        function syncScroll() {
+            if (state.showLineNumbers) {
+                elements.lineNumbers.scrollTop = elements.jsonInput.scrollTop;
+            }
+        }
+
+        function exportJson() {
+            if (!state.json) {
+                alert('没有可导出的 JSON 数据');
+                return;
+            }
+
+            const jsonStr = JSON.stringify(state.json, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function copyToClipboard() {
+            const text = elements.jsonOutput.textContent;
+            if (!text || text.includes('输入 JSON 以查看解析结果')) {
+                alert('没有可复制的内容');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(JSON.stringify(state.json, null, 2));
+                showNotification('复制成功');
+            } catch (err) {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            }
+        }
+
+        function expandAll() {
+            const collapsedContents = elements.jsonOutput.querySelectorAll('.collapsed-content');
+            collapsedContents.forEach(content => {
+                content.classList.remove('collapsed-content');
+                // 找到对应的按钮并更新图标
+                const button = content.previousElementSibling.previousElementSibling;
+                if (button && button.classList.contains('collapsible')) {
+                    button.textContent = '▼';
+                }
+            });
+        }
+
+        function collapseAll() {
+            const contents = elements.jsonOutput.querySelectorAll('.json-content');
+            contents.forEach(content => {
+                content.classList.add('collapsed-content');
+                // 找到对应的按钮并更新图标
+                const button = content.previousElementSibling.previousElementSibling;
+                if (button && button.classList.contains('collapsible')) {
+                    button.textContent = '▶';
+                }
+            });
+        }
+
+        function toggleExpandCollapse() {
+            if (state.isExpanded) {
+                collapseAll();
+                buttons.expandCollapse.setAttribute('data-tooltip', '展开全部');
+                state.isExpanded = false;
+            } else {
+                expandAll();
+                buttons.expandCollapse.setAttribute('data-tooltip', '折叠全部');
+                state.isExpanded = true;
+            }
+        }
+
+        function toggleEscape() {
+            state.preserveEscape = !state.preserveEscape;
+            buttons.escape.classList.toggle('active', state.preserveEscape);
+            buttons.escape.setAttribute('data-tooltip', state.preserveEscape ? '隐藏转义' : '显示转义');
+
+            if (state.json) {
+                collapseIdCounter = 0; // 重置计数器
+                elements.jsonOutput.innerHTML = renderJson(state.json, 0, state.isFormatted);
+                updateLineNumbers();
+            }
+        }
+
+        function formatJson() {
+            const input = elements.jsonInput.value.trim();
+            if (!input) {
+                alert('请先输入 JSON');
+                return;
+            }
+
+            try {
+                const json = JSON.parse(input);
+                elements.jsonInput.value = JSON.stringify(json, null, 2);
+                handleInput();
+            } catch (error) {
+                alert('JSON 格式错误，无法格式化');
+            }
+        }
+
+        function minifyJson() {
+            const input = elements.jsonInput.value.trim();
+            if (!input) {
+                alert('请先输入 JSON');
+                return;
+            }
+
+            try {
+                const json = JSON.parse(input);
+                elements.jsonInput.value = JSON.stringify(json);
+                handleInput();
+            } catch (error) {
+                alert('JSON 格式错误，无法压缩');
+            }
+        }
+
+        function toggleFormat() {
+            if (!state.json) {
+                alert('没有可格式化的 JSON 数据');
+                return;
+            }
+
+            state.isFormatted = !state.isFormatted;
+            buttons.format.setAttribute('data-tooltip', state.isFormatted ? '压缩' : '格式化');
+
+            collapseIdCounter = 0; // 重置计数器
+            elements.jsonOutput.innerHTML = renderJson(state.json, 0, state.isFormatted);
+            updateLineNumbers();
+        }
+
+        function clearAll() {
+            if (elements.jsonInput.value && !confirm('确定要清空所有内容吗？')) {
+                return;
+            }
+            elements.jsonInput.value = '';
+            clearOutput();
+            updateStatus('empty');
+            updateStats('');
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.25s ease-out';
+                setTimeout(() => notification.remove(), 250);
+            }, 1500);
+        }
+
+        function hideInputPanel() {
+            elements.inputPanel.classList.add('hidden-panel');
+            elements.outputPanel.classList.add('expanded-panel');
+            buttons.toggleInput.classList.add('hidden');
+            buttons.showInput.classList.remove('hidden');
+            state.inputPanelVisible = false;
+        }
+
+        function showInputPanel() {
+            elements.inputPanel.classList.remove('hidden-panel');
+            elements.outputPanel.classList.remove('expanded-panel');
+            buttons.toggleInput.classList.remove('hidden');
+            buttons.showInput.classList.add('hidden');
+            state.inputPanelVisible = true;
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            applyTheme(state.theme);
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            buttons.theme.setAttribute('data-tooltip', theme === 'dark' ? '浅色主题' : '深色主题');
+        }
+
+        init();
+    </script>
+</body>
+</html>
