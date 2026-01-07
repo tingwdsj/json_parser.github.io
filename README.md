@@ -2,6 +2,8 @@
 
 一个简洁、现代、功能强大的在线JSON解析工具，采用macOS风格设计。
 
+[点此访问](https://tingwdsj.github.io/json_parser.github.io/json-parser.html)
+
 ## ✨ 特性
 
 ### 核心功能
